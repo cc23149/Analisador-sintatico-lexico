@@ -1,0 +1,3 @@
+program teste_legal123;
+begin
+end.
