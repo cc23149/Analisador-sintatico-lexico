@@ -1,0 +1,90 @@
+
+teste 1
+program exemplo;
+
+label 100,200;
+
+var x, y : integer;
+
+(* comentario de teste *)
+
+begin
+
+    x := 10;
+    y := x + 5;
+
+    if y >= 10 then
+        y := y - 1;
+
+    goto 100;
+
+end.
+
+
+
+
+==================================
+
+
+teste 2
+program teste;
+
+begin
+
+    x := 10 @
+
+end.
+
+
+
+
+===========================
+
+
+
+teste 3
+program teste;
+
+(* comentario gigante
+nao foi fechado
+
+begin
+
+    x := 10;
+
+end.
+
+
+
+
+
+
+
+===============================
+teste 4
+program completo;
+
+var x, y, z : integer;
+
+begin
+
+    x := 10;
+    y := 20;
+
+    z := x + y;
+    z := z - 1;
+    z := z * 2;
+    z := z div 2;
+
+    if z >= 10 then
+        z := z + 1;
+
+    if z <= 100 then
+        z := z - 1;
+
+    if z <> 0 then
+        z := z + 1;
+
+end.
+
+

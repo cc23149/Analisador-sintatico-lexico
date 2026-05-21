@@ -1,6 +1,15 @@
-program teste;
-var x := 10;
+program exemplo;
+
+var x, y : integer;
+
+(* comentario de teste *)
+
 begin
-    if x >= 5 then
-        x := x + 1;
+
+    x := 10;
+    y := x + 5;
+
+    if y >= 10 then
+        y := y - 1;
+
 end.

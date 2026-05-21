@@ -1,5 +1,11 @@
-// ================= MAIN.C =================
+/******************************************************************************
 
+Welcome to GDB Online.
+GDB online is an online compiler and debugger tool for C, C++, Python, Java, PHP, Ruby, Perl,
+C#, OCaml, VB, Swift, Pascal, Fortran, Haskell, Objective-C, Assembly, HTML, CSS, JS, SQLite, Prolog.
+Code, Compile, Run and Debug online from anywhere in world.
+
+*******************************************************************************/
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
@@ -55,7 +61,62 @@ typedef enum {
 FILE *fp;
 Token tokenAtual;
 
-// ================= ANALISADOR LÉXICO =================
+// ================= CONTROLE DE POSICAO =================
+int linha = 1;
+int coluna = 0;
+
+// ================= NOME DOS TOKENS =================
+char* nomeToken(Token t) {
+
+    switch(t) {
+
+        case PROGRAMA: return "PROGRAM";
+        case VARIAVEL: return "VAR";
+        case PROCEDURE: return "PROCEDURE";
+        case FUNCTION: return "FUNCTION";
+        case LABEL: return "LABEL";
+        case GOTO: return "GOTO";
+
+        case BEGIN_TOKEN: return "BEGIN";
+        case END_TOKEN: return "END";
+
+        case IF_TOKEN: return "IF";
+        case THEN_TOKEN: return "THEN";
+        case ELSE_TOKEN: return "ELSE";
+
+        case IDENTIFICADOR: return "IDENTIFICADOR";
+        case NUMERO: return "NUMERO";
+
+        case MAIS: return "+";
+        case MENOS: return "-";
+        case VEZES: return "*";
+        case DIVIDIR: return "DIV";
+
+        case IGUAL: return "=";
+        case DIFERENTE: return "<>";
+        case MENOR: return "<";
+        case MENOROUIGUAL: return "<=";
+        case MAIOR: return ">";
+        case MAIOROUIGUAL: return ">=";
+
+        case ATRIBUICAO: return ":=";
+
+        case ABRE_PARENTESES: return "(";
+        case FECHA_PARENTESES: return ")";
+
+        case VIRGULA: return ",";
+        case PONTO_E_VIRGULA: return ";";
+        case DOIS_PONTOS: return ":";
+        case PONTO: return ".";
+
+        case FIM_DE_ARQUIVO: return "EOF";
+
+        default:
+            return "DESCONHECIDO";
+    }
+}
+
+// ================= ANALISADOR LEXICO =================
 Token analex() {
 
     char c;
@@ -64,42 +125,81 @@ Token analex() {
 
     while ((c = fgetc(fp)) != EOF) {
 
-        // IGNORA ESPAÇOS
+        coluna++;
+
+        // ================= CONTROLE DE LINHA =================
+        if (c == '\n') {
+
+            linha++;
+            coluna = 0;
+            continue;
+        }
+
+        // ================= IGNORA ESPACOS =================
         if (isspace(c))
             continue;
 
-        // IGNORA COMENTÁRIOS (* *)
+        // ================= COMENTARIOS =================
         if (c == '(') {
 
             char prox = fgetc(fp);
+            coluna++;
 
             if (prox == '*') {
 
                 char ant = 0;
+                int fechou = 0;
 
                 while ((c = fgetc(fp)) != EOF) {
 
-                    if (ant == '*' && c == ')')
+                    coluna++;
+
+                    if (c == '\n') {
+
+                        linha++;
+                        coluna = 0;
+                    }
+
+                    if (ant == '*' && c == ')') {
+
+                        fechou = 1;
                         break;
+                    }
 
                     ant = c;
+                }
+
+                if (!fechou) {
+
+                    printf("\n========== ERRO LEXICO ==========\n");
+                    printf("Linha: %d\n", linha);
+                    printf("Coluna: %d\n", coluna);
+                    printf("Descricao: comentario nao fechado\n");
+                    printf("=================================\n");
+
+                    exit(1);
                 }
 
                 continue;
             }
 
             ungetc(prox, fp);
+            coluna--;
+
             return ABRE_PARENTESES;
         }
 
-        // IDENTIFICADOR OU PALAVRA RESERVADA
+        // ================= IDENTIFICADORES =================
         if (isalpha(c)) {
 
             i = 0;
+
             buffer[i++] = c;
 
             while (isalnum(c = fgetc(fp)) || c == '_') {
+
                 buffer[i++] = c;
+                coluna++;
             }
 
             buffer[i] = '\0';
@@ -146,17 +246,18 @@ Token analex() {
                 return IDENTIFICADOR;
         }
 
-        // NÚMEROS
+        // ================= NUMEROS =================
         else if (isdigit(c)) {
 
-            while (isdigit(c = fgetc(fp)));
+            while (isdigit(c = fgetc(fp)))
+                coluna++;
 
             ungetc(c, fp);
 
             return NUMERO;
         }
 
-        // OPERADORES
+        // ================= OPERADORES =================
         else {
 
             switch (c) {
@@ -174,16 +275,22 @@ Token analex() {
                     return IGUAL;
 
                 case '>':
+
                     c = fgetc(fp);
+                    coluna++;
 
                     if (c == '=')
                         return MAIOROUIGUAL;
 
                     ungetc(c, fp);
+                    coluna--;
+
                     return MAIOR;
 
                 case '<':
+
                     c = fgetc(fp);
+                    coluna++;
 
                     if (c == '=')
                         return MENOROUIGUAL;
@@ -192,15 +299,21 @@ Token analex() {
                         return DIFERENTE;
 
                     ungetc(c, fp);
+                    coluna--;
+
                     return MENOR;
 
                 case ':':
+
                     c = fgetc(fp);
+                    coluna++;
 
                     if (c == '=')
                         return ATRIBUICAO;
 
                     ungetc(c, fp);
+                    coluna--;
+
                     return DOIS_PONTOS;
 
                 case ')':
@@ -217,14 +330,22 @@ Token analex() {
             }
         }
 
-        return DESCONHECIDO;
+        // ================= ERRO LEXICO =================
+        printf("\n========== ERRO LEXICO ==========\n");
+        printf("Linha: %d\n", linha);
+        printf("Coluna: %d\n", coluna);
+        printf("Caractere invalido: %c\n", c);
+        printf("=================================\n");
+
+        exit(1);
     }
 
     return FIM_DE_ARQUIVO;
 }
 
-// ================= AVANÇA TOKEN =================
+// ================= AVANCA TOKEN =================
 void avancaToken() {
+
     tokenAtual = analex();
 }
 
@@ -232,15 +353,35 @@ void avancaToken() {
 void consome(Token esperado, char mensagem[]) {
 
     if (tokenAtual == esperado) {
+
         avancaToken();
     }
     else {
-        printf("Erro sintatico: %s\n", mensagem);
+
+        printf("\n========== ERRO SINTATICO ==========\n");
+
+        printf("Linha: %d\n", linha);
+        printf("Coluna: %d\n", coluna);
+
+        printf(
+            "Token encontrado: %s\n",
+            nomeToken(tokenAtual)
+        );
+
+        printf(
+            "Token esperado: %s\n",
+            nomeToken(esperado)
+        );
+
+        printf("Descricao: %s\n", mensagem);
+
+        printf("====================================\n");
+
         exit(1);
     }
 }
 
-// ================= DECLARAÇÕES =================
+// ================= DECLARACOES =================
 void compila_expressao();
 void compila_comando();
 void compila_bloco();
@@ -248,12 +389,15 @@ void compila_bloco();
 // ================= FATOR =================
 void compila_fator() {
 
+    printf("Reconhecendo FATOR\n");
+
     if (tokenAtual == IDENTIFICADOR) {
 
         avancaToken();
 
-        // CHAMADA DE FUNÇÃO
         if (tokenAtual == ABRE_PARENTESES) {
+
+            printf("Reconhecendo chamada de funcao\n");
 
             avancaToken();
 
@@ -273,6 +417,7 @@ void compila_fator() {
     }
 
     else if (tokenAtual == NUMERO) {
+
         avancaToken();
     }
 
@@ -287,13 +432,28 @@ void compila_fator() {
 
     else {
 
-        printf("Erro sintatico: fator invalido\n");
+        printf("\n========== ERRO SINTATICO ==========\n");
+
+        printf("Linha: %d\n", linha);
+        printf("Coluna: %d\n", coluna);
+
+        printf(
+            "Token encontrado: %s\n",
+            nomeToken(tokenAtual)
+        );
+
+        printf("Descricao: fator invalido\n");
+
+        printf("====================================\n");
+
         exit(1);
     }
 }
 
 // ================= TERMO =================
 void compila_termo() {
+
+    printf("Reconhecendo TERMO\n");
 
     compila_fator();
 
@@ -304,8 +464,10 @@ void compila_termo() {
     }
 }
 
-// ================= EXPRESSÃO SIMPLES =================
+// ================= EXPRESSAO SIMPLES =================
 void compila_expressao_simples() {
+
+    printf("Reconhecendo EXPRESSAO SIMPLES\n");
 
     compila_termo();
 
@@ -316,8 +478,10 @@ void compila_expressao_simples() {
     }
 }
 
-// ================= EXPRESSÃO =================
+// ================= EXPRESSAO =================
 void compila_expressao() {
+
+    printf("Reconhecendo EXPRESSAO\n");
 
     compila_expressao_simples();
 
@@ -336,8 +500,10 @@ void compila_expressao() {
     }
 }
 
-// ================= PARÂMETROS =================
+// ================= PARAMETROS =================
 void compila_parametros() {
+
+    printf("Reconhecendo PARAMETROS\n");
 
     consome(ABRE_PARENTESES, "esperava (");
 
@@ -368,6 +534,8 @@ void compila_parametros() {
 // ================= LABEL =================
 void compila_label() {
 
+    printf("Reconhecendo LABEL\n");
+
     consome(LABEL, "esperava LABEL");
 
     consome(NUMERO, "esperava numero");
@@ -383,6 +551,8 @@ void compila_label() {
 
 // ================= VAR =================
 void compila_var() {
+
+    printf("Reconhecendo declaracao VAR\n");
 
     consome(VARIAVEL, "esperava VAR");
 
@@ -407,6 +577,8 @@ void compila_var() {
 // ================= PROCEDURE =================
 void compila_procedure() {
 
+    printf("Reconhecendo PROCEDURE\n");
+
     consome(PROCEDURE, "esperava PROCEDURE");
 
     consome(IDENTIFICADOR, "esperava identificador");
@@ -423,6 +595,8 @@ void compila_procedure() {
 
 // ================= FUNCTION =================
 void compila_function() {
+
+    printf("Reconhecendo FUNCTION\n");
 
     consome(FUNCTION, "esperava FUNCTION");
 
@@ -445,8 +619,11 @@ void compila_function() {
 // ================= COMANDO =================
 void compila_comando() {
 
-    // LABEL
+    printf("Reconhecendo COMANDO\n");
+
     if (tokenAtual == NUMERO) {
+
+        printf("Reconhecendo LABEL de comando\n");
 
         avancaToken();
 
@@ -455,8 +632,9 @@ void compila_comando() {
         compila_comando();
     }
 
-    // BEGIN END
     else if (tokenAtual == BEGIN_TOKEN) {
+
+        printf("Reconhecendo bloco BEGIN END\n");
 
         avancaToken();
 
@@ -471,8 +649,9 @@ void compila_comando() {
         consome(END_TOKEN, "esperava END");
     }
 
-    // IF
     else if (tokenAtual == IF_TOKEN) {
+
+        printf("Reconhecendo comando IF\n");
 
         avancaToken();
 
@@ -484,35 +663,41 @@ void compila_comando() {
 
         if (tokenAtual == ELSE_TOKEN) {
 
+            printf("Reconhecendo ELSE\n");
+
             avancaToken();
 
             compila_comando();
         }
     }
 
-    // GOTO
     else if (tokenAtual == GOTO) {
+
+        printf("Reconhecendo comando GOTO\n");
 
         avancaToken();
 
         consome(NUMERO, "esperava label");
     }
 
-    // IDENTIFICADOR
     else if (tokenAtual == IDENTIFICADOR) {
+
+        printf("Reconhecendo identificador\n");
 
         avancaToken();
 
-        // ATRIBUIÇÃO
         if (tokenAtual == ATRIBUICAO) {
+
+            printf("Reconhecendo atribuicao\n");
 
             avancaToken();
 
             compila_expressao();
         }
 
-        // CHAMADA
         else if (tokenAtual == ABRE_PARENTESES) {
+
+            printf("Reconhecendo chamada de procedimento\n");
 
             avancaToken();
 
@@ -534,6 +719,8 @@ void compila_comando() {
 
 // ================= BLOCO =================
 void compila_bloco() {
+
+    printf("Reconhecendo BLOCO\n");
 
     if (tokenAtual == LABEL)
         compila_label();
@@ -568,12 +755,15 @@ void compila_bloco() {
 // ================= PROGRAMA =================
 void compila_programa() {
 
+    printf("Reconhecendo PROGRAM\n");
+
     consome(PROGRAMA, "esperava PROGRAM");
 
     consome(IDENTIFICADOR, "esperava identificador");
 
-    // (input,output)
     if (tokenAtual == ABRE_PARENTESES) {
+
+        printf("Reconhecendo parametros de entrada e saida\n");
 
         avancaToken();
 
@@ -597,7 +787,11 @@ void compila_programa() {
 
     consome(FIM_DE_ARQUIVO, "esperava fim de arquivo");
 
-    printf("Programa sintaticamente correto!\n");
+    printf("\n========== ANALISE SINTATICA FINALIZADA ==========\n");
+    printf("Status: SUCESSO\n");
+    printf("Programa sintaticamente correto.\n");
+    printf("Linhas analisadas: %d\n", linha);
+    printf("==================================================\n");
 }
 
 // ================= MAIN =================
