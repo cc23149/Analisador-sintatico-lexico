@@ -1,0 +1,139 @@
+
+==================================================
+teste 1 - identificador nao declarado
+RESULTADO ESPERADO: ERRO SEMANTICO: identificador nao declarado (y)
+--------------------------------------------------
+program p;
+var x : integer;
+begin
+ y := 1
+end.
+
+==================================================
+teste 2 - variavel repetida no mesmo escopo
+RESULTADO ESPERADO: ERRO SEMANTICO: identificador ja declarado neste escopo (x)
+--------------------------------------------------
+program p;
+var x, x : integer;
+begin
+ x := 1
+end.
+
+==================================================
+teste 3 - tipo que nao existe
+RESULTADO ESPERADO: ERRO SEMANTICO: tipo desconhecido (foo)
+--------------------------------------------------
+program p;
+var x : foo;
+begin
+ x := 1
+end.
+
+==================================================
+teste 4 - goto para label nao declarado
+RESULTADO ESPERADO: ERRO SEMANTICO: label nao declarado (10)
+--------------------------------------------------
+program p;
+var x : integer;
+begin
+ goto 10
+end.
+
+==================================================
+teste 5 - variavel local usada fora do procedure (escopo ja destruido)
+RESULTADO ESPERADO: ERRO SEMANTICO: identificador nao declarado (a)
+--------------------------------------------------
+program p;
+procedure q;
+var a : integer;
+begin
+ a := 1
+end;
+begin
+ a := 2
+end.
+
+==================================================
+teste 6 - mesmo nome em escopos diferentes (shadowing)
+RESULTADO ESPERADO: SUCESSO - x aparece no escopo 1 e no escopo 2
+--------------------------------------------------
+program p;
+var x : integer;
+procedure q;
+var x : integer;
+begin
+ x := 1
+end;
+begin
+ q
+end.
+
+==================================================
+teste 7 - maiusculas/minusculas
+RESULTADO ESPERADO: SUCESSO - Pascal nao diferencia
+--------------------------------------------------
+program P;
+VAR X : Integer;
+Begin
+ x := 1
+End.
+
+==================================================
+teste 8 - procedure usado dentro de expressao
+RESULTADO ESPERADO: ERRO SEMANTICO: identificador nao pode ser usado em expressao
+--------------------------------------------------
+program p;
+var x : integer;
+procedure q;
+begin end;
+begin
+ x := q
+end.
+
+==================================================
+teste 9 - faltou END (antes travava)
+RESULTADO ESPERADO: ERRO SINTATICO: encontrado EOF, esperava END
+--------------------------------------------------
+program p;
+var x : integer;
+begin
+ x := 10
+
+==================================================
+teste 10 - THEN solto (antes travava)
+RESULTADO ESPERADO: ERRO SINTATICO: encontrado THEN
+--------------------------------------------------
+program p;
+var x : integer;
+begin
+ x := 10 then
+end.
+
+==================================================
+teste 11 - faltou ; entre comandos (antes passava)
+RESULTADO ESPERADO: ERRO SINTATICO: encontrado IDENTIFICADOR (x), esperava END
+--------------------------------------------------
+program p;
+var x : integer;
+begin
+ x := 1 x := 2
+end.
+
+==================================================
+teste 12 - ponto no lugar do END (antes travava)
+RESULTADO ESPERADO: ERRO SINTATICO: comando invalido, encontrado .
+--------------------------------------------------
+program exemplo(input,output);
+var x : integer;
+begin
+ x := 10;
+.
+
+==================================================
+teste 13 - faltou BEGIN
+RESULTADO ESPERADO: ERRO SINTATICO: esperava : na declaracao
+--------------------------------------------------
+program exemplo(input,output);
+var x : integer;
+ x := 10;
+end.
