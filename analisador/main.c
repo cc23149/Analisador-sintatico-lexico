@@ -1,16 +1,17 @@
 /******************************************************************************
- ANALISADOR LEXICO + SINTATICO + TABELA DE SIMBOLOS  (Pascal simplificado)
 
- Compilar: gcc -Wall -o main main.c
- Executar: ./main                (le entrada.txt)
-           ./main outro.txt      (le o arquivo indicado)
+Welcome to GDB Online.
+GDB online is an online compiler and debugger tool for C, C++, Python, Java, PHP, Ruby, Perl,
+C#, OCaml, VB, Swift, Pascal, Fortran, Haskell, Objective-C, Assembly, HTML, CSS, JS, SQLite, Prolog.
+Code, Compile, Run and Debug online from anywhere in world.
+
 *******************************************************************************/
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 
-// Coloque 1 para ver o passo a passo "Reconhecendo ..." (bom para apresentar)
+
 #define TRACE_ON 0
 #define TRACE(...) do { if (TRACE_ON) printf(__VA_ARGS__); } while (0)
 
@@ -71,37 +72,26 @@ Token tokenAtual;
 char lexema[MAX_ID];
 
 // ================= CONTROLE DE POSICAO =================
-int linha = 1;      // posicao de leitura do arquivo (fica na frente do token)
+int linha = 1;
 int coluna = 0;
 
-int tokenLinha = 1; // posicao onde o tokenAtual COMECA (usada nas mensagens de erro)
+int tokenLinha = 1;
 int tokenColuna = 0;
 
 // ================= TABELA DE SIMBOLOS =================
-//
-// Cada simbolo guarda: identificador, tipo, natureza e escopo.
-//
-// Escopo (camadas):
-//   0 = onde o programa e declarado (program, input, output, read, write, integer)
-//   1 = bloco principal do programa
-//   2 = dentro de um procedure/function declarado no bloco principal
-//   3 = dentro de um procedure/function declarado dentro de outro ... e assim por diante
-//
-// A tabela funciona como uma PILHA: ao entrar num procedure/function o escopo
-// aumenta; ao sair, os simbolos daquele escopo sao removidos.
 
 typedef enum {
-    TIPO_NULO,          // nao tem tipo (program, procedure, label...)
+    TIPO_NULO,
     TIPO_INTEGER
 } TipoBase;
 
 typedef enum {
     NAT_PROGRAMA,
-    NAT_PARAM_PROGRAMA, // input, output
-    NAT_TIPO,           // integer
+    NAT_PARAM_PROGRAMA,
+    NAT_TIPO,
     NAT_VARIAVEL,
-    NAT_PARAMETRO,      // parametro por valor
-    NAT_PARAMETRO_REF,  // parametro por referencia (var)
+    NAT_PARAMETRO,
+    NAT_PARAMETRO_REF,
     NAT_PROCEDURE,
     NAT_FUNCTION,
     NAT_LABEL
@@ -115,7 +105,7 @@ typedef struct {
 } Simbolo;
 
 Simbolo tabela[MAX_SIMBOLOS];
-int topo = 0;          // proxima posicao livre da tabela
+int topo = 0;
 int escopoAtual = 0;
 
 char* nomeNatureza(Natureza n) {
@@ -267,7 +257,6 @@ Token analex() {
         if (isspace(c))
             continue;
 
-        // aqui comeca um token (ou comentario): guarda a posicao
         tokenLinha = linha;
         tokenColuna = coluna;
 
@@ -318,7 +307,7 @@ Token analex() {
 
             i = 0;
 
-            buffer[i++] = tolower(c);   // Pascal nao diferencia maiuscula/minuscula
+            buffer[i++] = tolower(c);
 
             while (isalnum(c = fgetc(fp)) || c == '_') {
 
@@ -333,7 +322,7 @@ Token analex() {
 
             ungetc(c, fp);
 
-            strcpy(lexema, buffer);     // sintatico/tabela usam o lexema
+            strcpy(lexema, buffer);
 
             if (strcmp(buffer, "program") == 0)
                 return PROGRAMA;
@@ -500,8 +489,6 @@ void consome(Token esperado, char mensagem[]) {
 
 // ================= OPERACOES DA TABELA DE SIMBOLOS =================
 
-// procura o simbolo do escopo mais interno para o mais externo
-// (como a tabela e uma pilha, basta percorrer de tras para frente)
 int busca(char nome[]) {
 
     int i;
@@ -513,7 +500,6 @@ int busca(char nome[]) {
     return -1;
 }
 
-// insere no escopo atual; nao permite repetir o nome no MESMO escopo
 int insere(char nome[], Natureza nat, TipoBase tipo, int l, int c) {
 
     int i;
@@ -535,8 +521,6 @@ int insere(char nome[], Natureza nat, TipoBase tipo, int l, int c) {
     return topo - 1;
 }
 
-// usado em "a, b, c : integer": os nomes entram sem tipo e o tipo
-// so e conhecido depois do ':'
 void defineTipo(int inicio, TipoBase tipo) {
 
     int i;
@@ -565,7 +549,6 @@ void entraEscopo() {
     escopoAtual++;
 }
 
-// mostra a camada que esta terminando e remove seus simbolos
 void saiEscopo() {
 
     imprimeEscopo(escopoAtual);
@@ -576,23 +559,19 @@ void saiEscopo() {
     escopoAtual--;
 }
 
-// declara o identificador (ou numero, no caso de label) que esta em tokenAtual
 int declara(Natureza nat, Token esperado, char mensagem[]) {
 
     char nome[MAX_ID];
     int l = tokenLinha, c = tokenColuna;
 
-    strcpy(nome, lexema);           // copia ANTES de avancar (lexema muda)
+    strcpy(nome, lexema);
 
     consome(esperado, mensagem);
 
     return insere(nome, nat, TIPO_NULO, l, c);
 }
 
-// declara um nome dentro de uma lista "a, b, c : tipo" (var e parametros).
-// Depois do nome so pode vir ',' ou ':'. Conferir isso ANTES de inserir evita
-// um erro semantico enganoso quando o problema real e sintatico
-// (ex.: faltou BEGIN e o "x := 10" foi lido como se fosse uma declaracao).
+
 int declaraNaLista(Natureza nat) {
 
     char nome[MAX_ID];
@@ -608,8 +587,6 @@ int declaraNaLista(Natureza nat) {
     return insere(nome, nat, TIPO_NULO, l, c);
 }
 
-// tokenAtual e um IDENTIFICADOR que deve ja estar declarado.
-// Consome o token e devolve a posicao na tabela.
 int usaIdentificador() {
 
     char nome[MAX_ID];
@@ -628,7 +605,6 @@ int usaIdentificador() {
     return idx;
 }
 
-// tokenAtual e um NUMERO que deve ser um label declarado
 void usaLabel() {
 
     char nome[MAX_ID];
@@ -645,7 +621,6 @@ void usaLabel() {
         erroSemantico("label nao declarado", nome, l, c);
 }
 
-// le um tipo (ex.: integer) e procura na tabela
 TipoBase compila_tipo() {
 
     char nome[MAX_ID];
@@ -669,8 +644,7 @@ void compila_expressao();
 void compila_comando();
 void compila_bloco();
 
-// ================= CHAMADA (argumentos entre parenteses) =================
-// tokenAtual == '('
+// ================= CHAMADA =================
 void compila_argumentos() {
 
     consome(ABRE_PARENTESES, "esperava (");
@@ -758,7 +732,6 @@ void compila_expressao_simples() {
 
     TRACE("Reconhecendo EXPRESSAO SIMPLES\n");
 
-    // sinal opcional no inicio: -x  ou  +x
     if (tokenAtual == MAIS || tokenAtual == MENOS)
         avancaToken();
 
@@ -900,10 +873,8 @@ void compila_procedure() {
 
     consome(PROCEDURE, "esperava PROCEDURE");
 
-    // o nome pertence ao escopo de FORA...
     declara(NAT_PROCEDURE, IDENTIFICADOR, "esperava identificador");
 
-    // ...parametros e corpo pertencem a uma camada nova
     entraEscopo();
 
     if (tokenAtual == ABRE_PARENTESES)
@@ -972,7 +943,6 @@ void compila_comando() {
 
         compila_comando();
 
-        // comandos separados por ';'
         while (tokenAtual == PONTO_E_VIRGULA) {
 
             avancaToken();
@@ -1026,7 +996,6 @@ void compila_comando() {
 
             TRACE("Reconhecendo atribuicao\n");
 
-            // so recebe valor: variavel, parametro ou nome da funcao (retorno)
             if (nat != NAT_VARIAVEL && nat != NAT_PARAMETRO &&
                 nat != NAT_PARAMETRO_REF && nat != NAT_FUNCTION)
                 erroSemantico("identificador nao pode receber atribuicao", nome, l, c);
@@ -1048,18 +1017,15 @@ void compila_comando() {
 
         else {
 
-            // identificador sozinho so faz sentido como chamada de procedure (ex.: q)
             if (nat != NAT_PROCEDURE)
                 erroSintatico(":=", "esperava := ou chamada de procedure");
         }
     }
 
-    // comando vazio (ex.: "x := 1;" logo antes do END)
     else if (tokenAtual == PONTO_E_VIRGULA ||
              tokenAtual == END_TOKEN ||
              tokenAtual == ELSE_TOKEN) {
 
-        // nada a fazer
     }
 
     else {
@@ -1090,7 +1056,6 @@ void compila_bloco() {
             compila_function();
     }
 
-    // o corpo (BEGIN ... END) e um comando composto
     if (tokenAtual != BEGIN_TOKEN)
         erroSintatico("BEGIN", "esperava BEGIN");
 
@@ -1127,13 +1092,12 @@ void compila_programa() {
 
     consome(PONTO_E_VIRGULA, "esperava ;");
 
-    // escopo 1: bloco principal
     entraEscopo();
 
     compila_bloco();
 
-    saiEscopo();    // mostra escopo 1
-    saiEscopo();    // mostra escopo 0
+    saiEscopo();
+    saiEscopo();
 
     consome(PONTO, "esperava .");
 
@@ -1146,7 +1110,7 @@ void compila_programa() {
     printf("==================================================\n");
 }
 
-// ================= SIMBOLOS PRE-DEFINIDOS (escopo 0) =================
+// ================= SIMBOLOS PRE-DEFINIDOS =================
 void iniciaTabela() {
 
     escopoAtual = 0;
