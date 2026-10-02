@@ -17,6 +17,7 @@ Code, Compile, Run and Debug online from anywhere in world.
 
 #define MAX_ID       64
 #define MAX_SIMBOLOS 500
+#define MAX_PARAMS   16
 
 // ================= TOKENS =================
 typedef enum {
@@ -68,7 +69,6 @@ typedef enum {
 FILE *fp;
 Token tokenAtual;
 
-// texto (lexema) do tokenAtual - so vale para IDENTIFICADOR e NUMERO
 char lexema[MAX_ID];
 
 // ================= CONTROLE DE POSICAO =================
@@ -102,6 +102,8 @@ typedef struct {
     TipoBase tipo;
     Natureza natureza;
     int      escopo;
+    int      numParams;           
+    int      porRef[MAX_PARAMS];  
 } Simbolo;
 
 Simbolo tabela[MAX_SIMBOLOS];
@@ -237,7 +239,7 @@ void erroSemantico(char mensagem[], char nome[], int l, int c) {
 // ================= ANALISADOR LEXICO =================
 Token analex() {
 
-    int c;              // int (e nao char) para conseguir comparar com EOF
+    int c;              
     char buffer[MAX_ID];
     int i;
 
@@ -515,6 +517,10 @@ int insere(char nome[], Natureza nat, TipoBase tipo, int l, int c) {
     tabela[topo].natureza = nat;
     tabela[topo].tipo = tipo;
     tabela[topo].escopo = escopoAtual;
+    tabela[topo].numParams = 0;
+
+    for (i = 0; i < MAX_PARAMS; i++)
+        tabela[topo].porRef[i] = 0;
 
     topo++;
 
@@ -645,20 +651,72 @@ void compila_comando();
 void compila_bloco();
 
 // ================= CHAMADA =================
-void compila_argumentos() {
+void compila_argumento(int idxRotina, int pos) {
+
+    int l = tokenLinha, c = tokenColuna;
+    char nome[MAX_ID];
+
+    strcpy(nome, tabela[idxRotina].identificador);
+
+    if (tabela[idxRotina].numParams < 0) {
+
+        compila_expressao();
+        return;
+    }
+
+    if (pos >= tabela[idxRotina].numParams)
+        erroSemantico("numero de argumentos maior que o esperado", nome, l, c);
+
+    if (tabela[idxRotina].porRef[pos]) {
+
+        char arg[MAX_ID];
+        int idx;
+
+        if (tokenAtual != IDENTIFICADOR)
+            erroSemantico("parametro por referencia exige uma variavel", nome, l, c);
+
+        strcpy(arg, lexema);
+        idx = usaIdentificador();
+
+        if (tabela[idx].natureza != NAT_VARIAVEL &&
+            tabela[idx].natureza != NAT_PARAMETRO &&
+            tabela[idx].natureza != NAT_PARAMETRO_REF)
+            erroSemantico("parametro por referencia exige uma variavel", arg, l, c);
+
+        // se vier algo depois (ex.: +0, *2, comparacao), nao e variavel pura
+        if (tokenAtual != VIRGULA && tokenAtual != FECHA_PARENTESES)
+            erroSemantico("parametro por referencia nao aceita expressao", arg, l, c);
+    }
+    else {
+
+        compila_expressao();
+    }
+}
+
+void compila_argumentos(int idxRotina) {
+
+    int pos = 0;
+    char nome[MAX_ID];
+
+    strcpy(nome, tabela[idxRotina].identificador);
 
     consome(ABRE_PARENTESES, "esperava (");
 
     if (tokenAtual != FECHA_PARENTESES) {
 
-        compila_expressao();
+        compila_argumento(idxRotina, pos++);
 
         while (tokenAtual == VIRGULA) {
 
             avancaToken();
-            compila_expressao();
+            compila_argumento(idxRotina, pos++);
         }
     }
+
+    if (tabela[idxRotina].numParams >= 0 &&
+        pos != tabela[idxRotina].numParams)
+        erroSemantico("numero de argumentos diferente do esperado",
+                      nome, tokenLinha, tokenColuna);
 
     consome(FECHA_PARENTESES, "esperava )");
 }
@@ -684,7 +742,7 @@ void compila_fator() {
             if (nat != NAT_FUNCTION)
                 erroSemantico("so funcao pode ser chamada em expressao", nome, l, c);
 
-            compila_argumentos();
+            compila_argumentos(idx);
         }
         else if (nat != NAT_VARIAVEL && nat != NAT_PARAMETRO &&
                  nat != NAT_PARAMETRO_REF && nat != NAT_FUNCTION) {
@@ -767,11 +825,10 @@ void compila_expressao() {
 }
 
 // ================= PARAMETROS =================
-// um grupo:  [var] a, b : tipo
-void compila_grupo_parametros() {
+void compila_grupo_parametros(int idxRotina) {
 
     Natureza nat = NAT_PARAMETRO;
-    int inicio;
+    int inicio, i;
     TipoBase tipo;
 
     if (tokenAtual == VARIAVEL) {
@@ -795,9 +852,19 @@ void compila_grupo_parametros() {
     tipo = compila_tipo();
 
     defineTipo(inicio, tipo);
+
+    for (i = inicio; i < topo; i++) {
+
+        if (tabela[idxRotina].numParams >= MAX_PARAMS)
+            erroSemantico("muitos parametros", tabela[i].identificador,
+                          tokenLinha, tokenColuna);
+
+        tabela[idxRotina].porRef[tabela[idxRotina].numParams++] =
+            (nat == NAT_PARAMETRO_REF);
+    }
 }
 
-void compila_parametros() {
+void compila_parametros(int idxRotina) {
 
     TRACE("Reconhecendo PARAMETROS\n");
 
@@ -805,13 +872,13 @@ void compila_parametros() {
 
     if (tokenAtual != FECHA_PARENTESES) {
 
-        compila_grupo_parametros();
+        compila_grupo_parametros(idxRotina);
 
         // grupos sao separados por ';'
         while (tokenAtual == PONTO_E_VIRGULA) {
 
             avancaToken();
-            compila_grupo_parametros();
+            compila_grupo_parametros(idxRotina);
         }
     }
 
@@ -869,16 +936,18 @@ void compila_var() {
 // ================= PROCEDURE =================
 void compila_procedure() {
 
+    int idx;
+
     TRACE("Reconhecendo PROCEDURE\n");
 
     consome(PROCEDURE, "esperava PROCEDURE");
 
-    declara(NAT_PROCEDURE, IDENTIFICADOR, "esperava identificador");
+    idx = declara(NAT_PROCEDURE, IDENTIFICADOR, "esperava identificador");
 
     entraEscopo();
 
     if (tokenAtual == ABRE_PARENTESES)
-        compila_parametros();
+        compila_parametros(idx);
 
     consome(PONTO_E_VIRGULA, "esperava ;");
 
@@ -903,11 +972,10 @@ void compila_function() {
     entraEscopo();
 
     if (tokenAtual == ABRE_PARENTESES)
-        compila_parametros();
+        compila_parametros(idx);
 
     consome(DOIS_PONTOS, "esperava :");
 
-    // o tipo da funcao e o tipo de retorno
     tabela[idx].tipo = compila_tipo();
 
     consome(PONTO_E_VIRGULA, "esperava ;");
@@ -1012,7 +1080,7 @@ void compila_comando() {
             if (nat != NAT_PROCEDURE)
                 erroSemantico("so procedure pode ser chamada como comando", nome, l, c);
 
-            compila_argumentos();
+            compila_argumentos(idx);
         }
 
         else {
@@ -1069,7 +1137,6 @@ void compila_programa() {
 
     consome(PROGRAMA, "esperava PROGRAM");
 
-    // escopo 0: o programa e seus parametros
     declara(NAT_PROGRAMA, IDENTIFICADOR, "esperava identificador");
 
     if (tokenAtual == ABRE_PARENTESES) {
@@ -1113,11 +1180,17 @@ void compila_programa() {
 // ================= SIMBOLOS PRE-DEFINIDOS =================
 void iniciaTabela() {
 
+    int idx;
+
     escopoAtual = 0;
 
     insere("integer", NAT_TIPO, TIPO_INTEGER, 0, 0);
-    insere("read",    NAT_PROCEDURE, TIPO_NULO, 0, 0);
-    insere("write",   NAT_PROCEDURE, TIPO_NULO, 0, 0);
+
+    idx = insere("read", NAT_PROCEDURE, TIPO_NULO, 0, 0);
+    tabela[idx].numParams = -1;
+
+    idx = insere("write", NAT_PROCEDURE, TIPO_NULO, 0, 0);
+    tabela[idx].numParams = -1;
 }
 
 // ================= MAIN =================
